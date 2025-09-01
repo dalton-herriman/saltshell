@@ -5,6 +5,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+// Function declarations
+char *saltshell_readline(void);
+char **saltshell_splitline(char *line);
+int saltshell_execute(char **args);
+
+#define SALTSHELL_TOK_BUFSIZE 64
+#define SALTSHELL_TOK_DELIM " \t\r\n\a"
+
 
 char *saltshell_readline(void) {
     char *line = NULL;
@@ -12,9 +20,6 @@ char *saltshell_readline(void) {
     getline(&line, &bufsize, stdin);
     return line;
 }
-
-#define SALTSHELL_TOK_BUFSIZE 64
-#define SALTSHELL_TOK_DELIM " \t\r\n\a"
 
 char **saltshell_splitline(char *line) {
     int bufsize = SALTSHELL_TOK_BUFSIZE, position = 0;
@@ -93,7 +98,7 @@ void saltshell_loop(void) {
 		free(line);
 		free(args);
 	} while (status); 
-}
+}	
 
 
 int main(int argc, char **argv) {
