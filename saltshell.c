@@ -1,19 +1,16 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-void saltshell_loop(void) {
-	char *line;
-	char **args;
-	int status;
 
-	do {
-		printf("> ");
-		line = saltshell_readline();
-		args = saltshell_splitline(line);
-		status = saltshell_execute(args);
-
-		free(line);
-		free(args);
-	} while (status); 
+char *saltshell_readline(void) {
+    char *line = NULL;
+    size_t bufsize = 0; // Let getline allocate
+    getline(&line, &bufsize, stdin);
+    return line;
 }
 
 #define SALTSHELL_TOK_BUFSIZE 64
@@ -82,13 +79,22 @@ int saltshell_execute(char **args) {
     return 1; // Keep shell running
 }
 
+void saltshell_loop(void) {
+	char *line;
+	char **args;
+	int status;
 
-char *saltshell_readline(void) {
-    char *line = NULL;
-    size_t bufsize = 0; // Let getline allocate
-    getline(&line, &bufsize, stdin);
-    return line;
+	do {
+		printf("> ");
+		line = saltshell_readline();
+		args = saltshell_splitline(line);
+		status = saltshell_execute(args);
+
+		free(line);
+		free(args);
+	} while (status); 
 }
+
 
 int main(int argc, char **argv) {
 	// Load config files
