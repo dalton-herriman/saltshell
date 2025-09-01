@@ -1,112 +1,72 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
 
-// Function declarations
-char *saltshell_readline(void);
-char **saltshell_splitline(char *line);
-int saltshell_execute(char **args);
+#define MAX_TOKENS 64
+#define DELIMITERS " \t\r\n\a"
 
-#define SALTSHELL_TOK_BUFSIZE 64
-#define SALTSHELL_TOK_DELIM " \t\r\n\a"
+void read_line(char *line);
+void split_line(char *line, char *tokens[]);
+int execute(char *tokens[]);
 
+void shell_loop() {
+    char line[1024];  // Buffer to hold the input line
+    char *tokens[MAX_TOKENS];  // Array to hold tokens
 
-char *saltshell_readline(void) {
-    char *line = NULL;
-    size_t bufsize = 0; // Let getline allocate
-    getline(&line, &bufsize, stdin);
-    return line;
+    while (1) {
+        printf("> ");
+        read_line(line);           // Read input line
+        split_line(line, tokens);  // Split into tokens
+        if (execute(tokens) == 0)  // Execute the command
+            break;  // Exit shell if command is "exit"
+    }
 }
 
-char **saltshell_splitline(char *line) {
-    int bufsize = SALTSHELL_TOK_BUFSIZE, position = 0;
-    char **tokens = malloc(bufsize * sizeof(char*));
-    char *token;
+void read_line(char *line) {
+    fgets(line, sizeof(line), stdin);  // Read a line of input
+}
 
-    if (!tokens) {
-        fprintf(stderr, "saltshell: allocation error\n");
-        exit(EXIT_FAILURE);
-    }
+void split_line(char *line, char *tokens[]) {
+    int i = 0;
+    char *token = strtok(line, DELIMITERS);
 
-    token = strtok(line, SALTSHELL_TOK_DELIM);
     while (token != NULL) {
-        tokens[position] = token;
-        position++;
-
-        if (position >= bufsize) {
-            bufsize += SALTSHELL_TOK_BUFSIZE;
-            tokens = realloc(tokens, bufsize * sizeof(char*));
-            if (!tokens) {
-                fprintf(stderr, "saltshell: allocation error\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-
-        token = strtok(NULL, SALTSHELL_TOK_DELIM);
+        tokens[i] = token;  // Store token in the array
+        i++;
+        token = strtok(NULL, DELIMITERS);  // Get next token
     }
-    tokens[position] = NULL;
-    return tokens;
+    tokens[i] = NULL;  // Null-terminate the tokens array
 }
 
-int saltshell_execute(char **args) {
-    if (args[0] == NULL) {
-        // Empty command
-        return 1;
+int execute(char *tokens[]) {
+    if (tokens[0] == NULL) {
+        return 1;  // Empty command
     }
 
-    if (strcmp(args[0], "exit") == 0) {
+    if (strcmp(tokens[0], "exit") == 0) {
         return 0;  // Exit the shell
     }
 
-    pid_t pid, wpid;
-    int status;
-
-    pid = fork();
+    pid_t pid = fork();  // Create a child process
     if (pid == 0) {
-        // Child process
-        if (execvp(args[0], args) == -1) {
-            perror("saltshell");
+        if (execvp(tokens[0], tokens) == -1) {
+            perror("shell");  // Error in exec
         }
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);  // Exit child process if exec fails
     } else if (pid < 0) {
-        // Error forking
-        perror("saltshell");
+        perror("shell");  // Error forking
     } else {
-        // Parent process
-        do {
-            wpid = waitpid(pid, &status, WUNTRACED);
-        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        int status;
+        waitpid(pid, &status, 0);  // Wait for the child process to finish
     }
 
-    return 1; // Keep shell running
+    return 1;  // Continue running the shell
 }
 
-void saltshell_loop(void) {
-	char *line;
-	char **args;
-	int status;
-
-	do {
-		printf("> ");
-		line = saltshell_readline();
-		args = saltshell_splitline(line);
-		status = saltshell_execute(args);
-
-		free(line);
-		free(args);
-	} while (status); 
-}	
-
-
-int main(int argc, char **argv) {
-	// Load config files
-
-	// Run command loop
-	saltshell_loop();
-
-	// Perform shutdown/cleanup
-	return 0;
+int main() {
+    shell_loop();  // Start the shell loop
+    return 0;
 }
